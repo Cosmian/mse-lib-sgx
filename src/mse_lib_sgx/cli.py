@@ -1,4 +1,4 @@
-"""mse_lib_sgx.cli module."""
+"""mse_lib_sgx.cli.bootstrap module."""
 
 import argparse
 import asyncio
@@ -10,14 +10,12 @@ from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 
-from cryptography import x509
-from cryptography.x509.oid import NameOID
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from mse_lib_crypto.xsalsa20_poly1305 import decrypt_directory
 
 from mse_lib_sgx import __version__, globs
-from mse_lib_sgx.certificate import SGXCertificate, to_wildcard_domain
+from mse_lib_sgx.certificate import Certificate, to_wildcard_domain
 from mse_lib_sgx.error import SecurityError
 from mse_lib_sgx.http_server import serve as serve_sgx_secrets
 
@@ -142,21 +140,12 @@ def run() -> None:
 
     logging.info("Generating the self signed certificate...")
 
-    subject: x509.Name = x509.Name(
-        [
-            x509.NameAttribute(NameOID.COUNTRY_NAME, "FR"),
-            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "Ile-de-France"),
-            x509.NameAttribute(NameOID.LOCALITY_NAME, "Paris"),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Cosmian Tech"),
-            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-        ]
-    )
-
-    cert: SGXCertificate = SGXCertificate(
+    cert: Certificate = Certificate(
         dns_name=args.host,
-        subject=subject,
+        subject=globs.SUBJECT,
         root_path=globs.KEY_DIR_PATH,
         expiration_date=expiration_date,
+        ratls=True,
     )
 
     logging.info("Starting the configuration server...")
@@ -170,6 +159,7 @@ def run() -> None:
         certificate=cert,
         uuid=args.uuid,
         need_ssl_private_key=ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE,
+        timeout=globs.TIMEOUT,
     )
 
     if globs.CODE_SECRET_KEY:
@@ -208,7 +198,7 @@ def run() -> None:
     config = Config.from_mapping(config_map)
 
     logging.info("Loading the application...")
-    module, application = args.application.split(":")
+    module_name, application_name = args.application.split(":")
 
     sys.path.append(f"{globs.MODULE_DIR_PATH}")
 
@@ -217,7 +207,7 @@ def run() -> None:
     logging.debug("sysconfig.get_paths(): %s", sysconfig.get_paths())
     logging.debug("application: %s", args.application)
 
-    app = getattr(importlib.import_module(module), application)
+    application = getattr(importlib.import_module(module_name), application_name)
 
     logging.info("Starting the application (mode=%s)...", ssl_app_mode.name)
-    asyncio.run(serve(app, config))
+    asyncio.run(serve(application, config))
