@@ -138,7 +138,7 @@ def run() -> None:
         ssl_app_mode = SslAppMode.RATLS_CERTIFICATE
         expiration_date = datetime.utcfromtimestamp(args.self_signed)
 
-    logging.info("Generating the self signed certificate...")
+    logging.info("Generating self-signed certificate...")
 
     cert: Certificate = Certificate(
         dns_name=args.host,
@@ -148,35 +148,41 @@ def run() -> None:
         ratls=True,
     )
 
-    logging.info("Starting the configuration server...")
-    # The app owner will send:
-    # - the uuid of the app (see as an uniq token allowing to query the API)
-    # - the key to decrypt the code
-    # - (optional) the SSL private key if AppConnection.OWNER_CERTFICIATE
-    serve_sgx_secrets(
-        hostname="0.0.0.0",
-        port=args.port,
-        certificate=cert,
-        uuid=args.uuid,
-        need_ssl_private_key=ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE,
-        timeout=globs.TIMEOUT,
-    )
+    symkey_path: Path = globs.KEY_DIR_PATH / "code.key"
 
-    if globs.CODE_SECRET_KEY:
-        decrypt_directory(
-            dir_path=args.app_dir,
-            key=globs.CODE_SECRET_KEY,
-            ext=".enc",
-            out_dir_path=globs.MODULE_DIR_PATH,
+    if not symkey_path.exists():
+        logging.info("Starting the configuration server...")
+        # The app owner will send:
+        # - the uuid of the app (see as an uniq token allowing to query the API)
+        # - the key to decrypt the code
+        # - (optional) the SSL private key if AppConnection.OWNER_CERTFICIATE
+        serve_sgx_secrets(
+            hostname="0.0.0.0",
+            port=args.port,
+            certificate=cert,
+            uuid=args.uuid,
+            need_ssl_private_key=ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE,
+            timeout=globs.TIMEOUT,
         )
-        (globs.KEY_DIR_PATH / "code.key").write_bytes(globs.CODE_SECRET_KEY)
 
-    if (
-        ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE
-        and globs.SSL_PRIVATE_KEY
-        and ssl_private_key_path is not None
-    ):
-        ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
+        if globs.CODE_SECRET_KEY is None:
+            raise SecurityError("Code secret key not proviced")
+
+        symkey_path.write_bytes(globs.CODE_SECRET_KEY)
+
+        if (
+            ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE
+            and globs.SSL_PRIVATE_KEY
+            and ssl_private_key_path is not None
+        ):
+            ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
+
+    decrypt_directory(
+        dir_path=args.app_dir,
+        key=symkey_path.read_bytes(),
+        ext=".enc",
+        out_dir_path=globs.MODULE_DIR_PATH,
+    )
 
     config_map = {
         "bind": f"0.0.0.0:{args.port}",
