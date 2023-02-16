@@ -99,3 +99,15 @@ def conf_server(host, port, uuid, certificate):
     time.sleep(1)
     yield proc
     proc.terminate()
+
+
+@pytest.fixture(scope="module")
+def conf_server_low_timeout(host, port, uuid, certificate):
+    proc = multiprocessing.Process(
+        target=mse_lib_sgx.http_server.serve,
+        args=(host, port, certificate, uuid, False, 1),
+    )
+    proc.start()
+    time.sleep(1)
+    yield proc
+    proc.terminate()

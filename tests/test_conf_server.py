@@ -123,3 +123,12 @@ def test_good_flow(
     assert getattr(module, "x") == 1
     assert getattr(module, "y") == 2
     assert getattr(module, "z") == 3
+
+
+def test_timeout(
+    set_env,
+    conf_server_low_timeout,
+):
+    assert conf_server_low_timeout.is_alive()
+    time.sleep(1.2)
+    assert conf_server_low_timeout.is_alive() is False

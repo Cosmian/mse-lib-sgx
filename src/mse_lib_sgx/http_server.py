@@ -89,7 +89,7 @@ def serve(
 
     httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
 
-    timer = threading.Timer(interval=30, function=kill, args=(timeout,))
+    timer = threading.Timer(interval=timeout, function=kill)
     timer.start()
 
     threading.Thread(target=kill_event, args=(httpd, timer)).start()
