@@ -22,8 +22,8 @@ from intel_sgx_ra.ratls import SGX_QUOTE_EXTENSION_OID, get_quote_from_cert
 from mse_lib_sgx.sgx_quote import get_quote
 
 
-class SGXCertificate:
-    """SGXCertificate class."""
+class Certificate:
+    """Certificate class."""
 
     def __init__(
         self,
@@ -31,6 +31,7 @@ class SGXCertificate:
         subject: x509.Name,
         root_path: Path,
         expiration_date: datetime,
+        ratls: bool = True,
     ):
         """Init constructor of SGXCertificate."""
         self.cert_path: Path = root_path / "cert.ratls.pem"
@@ -45,29 +46,33 @@ class SGXCertificate:
         )
         self.expiration_date: datetime = expiration_date
         self.cert: x509.Certificate
-        self.quote: Quote
+        self.quote: Optional[Quote] = None
         if self.key_path.exists() and self.cert_path.exists():
             self.cert = x509.load_pem_x509_certificate(data=self.cert_path.read_bytes())
-            self.quote = get_quote_from_cert(self.cert)
+            if ratls:
+                self.quote = get_quote_from_cert(self.cert)
         else:
-            self.quote = Quote.from_bytes(
-                get_quote(
-                    user_report_data=hashlib.sha256(
-                        self.sk.public_key().public_bytes(
-                            encoding=Encoding.X962,
-                            format=PublicFormat.UncompressedPoint,
-                        )
-                    ).digest()
+            custom_extension: Optional[x509.ExtensionType] = None
+            if ratls:
+                self.quote = Quote.from_bytes(
+                    get_quote(
+                        user_report_data=hashlib.sha256(
+                            self.sk.public_key().public_bytes(
+                                encoding=Encoding.X962,
+                                format=PublicFormat.UncompressedPoint,
+                            )
+                        ).digest()
+                    )
                 )
-            )
+                custom_extension = x509.UnrecognizedExtension(
+                    oid=SGX_QUOTE_EXTENSION_OID, value=bytes(self.quote)
+                )
             self.cert = generate_x509(
                 dns_name=dns_name,
                 subject=subject,
                 private_key=self.sk,
                 expiration_date=self.expiration_date,
-                custom_extension=x509.UnrecognizedExtension(
-                    oid=SGX_QUOTE_EXTENSION_OID, value=bytes(self.quote)
-                ),
+                custom_extension=custom_extension,
             )
             self.write(self.cert_path, self.key_path)
 
@@ -90,7 +95,7 @@ def generate_x509(
     subject: x509.Name,
     private_key: ec.EllipticCurvePrivateKey,
     expiration_date: datetime,
-    custom_extension: Optional[x509.UnrecognizedExtension] = None,
+    custom_extension: Optional[x509.ExtensionType] = None,
 ) -> x509.Certificate:
     """X509 certificate generation."""
     issuer: x509.Name = subject  # issuer=subject for self-signed certificate

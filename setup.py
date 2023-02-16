@@ -48,6 +48,6 @@ setup(
         "Operating System :: OS Independent",
     ],
     setup_requires=["wheel"],
-    tests_require=["pytest>=7.1.3,<7.2.0"],
+    tests_require=["pytest>=7.1.3,<7.2.0", "mse-lib-crypto>=1.1,<1.2"],
     include_package_data=True,
 )

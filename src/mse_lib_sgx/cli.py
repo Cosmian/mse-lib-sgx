@@ -1,4 +1,4 @@
-"""mse_lib_sgx.cli module."""
+"""mse_lib_sgx.cli.bootstrap module."""
 
 import argparse
 import asyncio
@@ -10,14 +10,12 @@ from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 
-from cryptography import x509
-from cryptography.x509.oid import NameOID
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from mse_lib_crypto.xsalsa20_poly1305 import decrypt_directory
 
 from mse_lib_sgx import __version__, globs
-from mse_lib_sgx.certificate import SGXCertificate, to_wildcard_domain
+from mse_lib_sgx.certificate import Certificate, to_wildcard_domain
 from mse_lib_sgx.error import SecurityError
 from mse_lib_sgx.http_server import serve as serve_sgx_secrets
 
@@ -140,53 +138,51 @@ def run() -> None:
         ssl_app_mode = SslAppMode.RATLS_CERTIFICATE
         expiration_date = datetime.utcfromtimestamp(args.self_signed)
 
-    logging.info("Generating the self signed certificate...")
+    logging.info("Generating self-signed certificate...")
 
-    subject: x509.Name = x509.Name(
-        [
-            x509.NameAttribute(NameOID.COUNTRY_NAME, "FR"),
-            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "Ile-de-France"),
-            x509.NameAttribute(NameOID.LOCALITY_NAME, "Paris"),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Cosmian Tech"),
-            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-        ]
-    )
-
-    cert: SGXCertificate = SGXCertificate(
+    cert: Certificate = Certificate(
         dns_name=args.host,
-        subject=subject,
+        subject=globs.SUBJECT,
         root_path=globs.KEY_DIR_PATH,
         expiration_date=expiration_date,
+        ratls=True,
     )
 
-    logging.info("Starting the configuration server...")
-    # The app owner will send:
-    # - the uuid of the app (see as an uniq token allowing to query the API)
-    # - the key to decrypt the code
-    # - (optional) the SSL private key if AppConnection.OWNER_CERTFICIATE
-    serve_sgx_secrets(
-        hostname="0.0.0.0",
-        port=args.port,
-        certificate=cert,
-        uuid=args.uuid,
-        need_ssl_private_key=ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE,
-    )
+    symkey_path: Path = globs.KEY_DIR_PATH / "code.key"
 
-    if globs.CODE_SECRET_KEY:
-        decrypt_directory(
-            dir_path=args.app_dir,
-            key=globs.CODE_SECRET_KEY,
-            ext=".enc",
-            out_dir_path=globs.MODULE_DIR_PATH,
+    if not symkey_path.exists():
+        logging.info("Starting the configuration server...")
+        # The app owner will send:
+        # - the uuid of the app (see as an uniq token allowing to query the API)
+        # - the key to decrypt the code
+        # - (optional) the SSL private key if AppConnection.OWNER_CERTFICIATE
+        serve_sgx_secrets(
+            hostname="0.0.0.0",
+            port=args.port,
+            certificate=cert,
+            uuid=args.uuid,
+            need_ssl_private_key=ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE,
+            timeout=globs.TIMEOUT,
         )
-        (globs.KEY_DIR_PATH / "code.key").write_bytes(globs.CODE_SECRET_KEY)
 
-    if (
-        ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE
-        and globs.SSL_PRIVATE_KEY
-        and ssl_private_key_path is not None
-    ):
-        ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
+        if globs.CODE_SECRET_KEY is None:
+            raise SecurityError("Code secret key not provided")
+
+        symkey_path.write_bytes(globs.CODE_SECRET_KEY)
+
+        if (
+            ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE
+            and globs.SSL_PRIVATE_KEY
+            and ssl_private_key_path is not None
+        ):
+            ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
+
+    decrypt_directory(
+        dir_path=args.app_dir,
+        key=symkey_path.read_bytes(),
+        ext=".enc",
+        out_dir_path=globs.MODULE_DIR_PATH,
+    )
 
     config_map = {
         "bind": f"0.0.0.0:{args.port}",
@@ -208,7 +204,7 @@ def run() -> None:
     config = Config.from_mapping(config_map)
 
     logging.info("Loading the application...")
-    module, application = args.application.split(":")
+    module_name, application_name = args.application.split(":")
 
     sys.path.append(f"{globs.MODULE_DIR_PATH}")
 
@@ -217,7 +213,7 @@ def run() -> None:
     logging.debug("sysconfig.get_paths(): %s", sysconfig.get_paths())
     logging.debug("application: %s", args.application)
 
-    app = getattr(importlib.import_module(module), application)
+    application = getattr(importlib.import_module(module_name), application_name)
 
     logging.info("Starting the application (mode=%s)...", ssl_app_mode.name)
-    asyncio.run(serve(app, config))
+    asyncio.run(serve(application, config))
