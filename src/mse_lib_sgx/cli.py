@@ -166,7 +166,7 @@ def run() -> None:
         )
 
         if globs.CODE_SECRET_KEY is None:
-            raise SecurityError("Code secret key not proviced")
+            raise SecurityError("Code secret key not provided")
 
         symkey_path.write_bytes(globs.CODE_SECRET_KEY)
 
