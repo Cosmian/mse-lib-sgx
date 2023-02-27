@@ -28,30 +28,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "application",
         type=str,
-        help="Application to dispatch to as path.to.module:instance.path",
+        help="ASGI application path (as module:app)",
     )
 
     parser.add_argument(
         "--host",
         required=True,
         type=str,
-        help="Hostname of the configuration server"
-        "If `--self-signed`, it's also the hostname of the app server",
+        help="hostname of the configuration server, "
+        "also the hostname of the app server if `--self-signed`",
     )
-    parser.add_argument("--port", required=True, type=int, help="Port of the server")
+    parser.add_argument("--port", required=True, type=int, help="port of the server")
     parser.add_argument(
         "--app-dir",
         required=True,
         type=Path,
-        help="Path of the microservice application. Read only directory.",
+        help="path of the python web application",
     )
     parser.add_argument(
-        "--uuid", required=True, type=str, help="Unique application UUID."
+        "--uuid", required=True, type=str, help="unique application UUID"
     )
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
-    parser.add_argument("--debug", action="store_true", help="Debug mode without SGX")
+    parser.add_argument(
+        "--debug", action="store_true", help="debug mode with more logging"
+    )
 
     group = parser.add_mutually_exclusive_group(required=True)
 
@@ -59,21 +61,18 @@ def parse_args() -> argparse.Namespace:
         "--self-signed",
         type=int,
         metavar="EXPIRATION_DATE",
-        help="Generate a self-signed certificate for the app. "
-        "Specify the expiration date of the certificate "
-        "as a timestamp since Epoch",
+        help="generate a self-signed certificate for the web app with a "
+        "specific expiration date (Unix time)",
     )
 
-    group.add_argument(
-        "--no-ssl", action="store_true", help="Don't use HTTPS connection"
-    )
+    group.add_argument("--no-ssl", action="store_true", help="use HTTP without SSL")
 
     group.add_argument(
         "--certificate",
         type=Path,
         metavar="CERTIFICATE_PATH",
-        help="Use the given certificate for the SSL connection. "
-        "the private key will be sent using the configuration server",
+        help="custom certificate used for the SSL connection, "
+        "private key must be sent through the configuration server",
     )
 
     return parser.parse_args()
@@ -113,7 +112,8 @@ def run() -> None:
     globs.MODULE_DIR_PATH.mkdir(exist_ok=True)
 
     logging.basicConfig(
-        level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(message)s"
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format="[%(asctime)s] [%(levelname)s] %(message)s",
     )
 
     ssl_private_key_path = None
