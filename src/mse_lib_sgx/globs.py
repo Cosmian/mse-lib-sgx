@@ -32,4 +32,4 @@ SUBJECT: x509.Name = x509.Name(
     ]
 )
 
-TIMEOUT: int = 180
+TIMEOUT: int = 300
