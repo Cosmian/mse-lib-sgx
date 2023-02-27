@@ -34,31 +34,32 @@ $ pip install mse-lib-sgx
 
 ```console
 $ mse-bootstrap --help
-usage: mse-bootstrap [-h] --host HOST --port PORT --app-dir APP_DIR --uuid UUID [--version]
-                     [--debug]
+usage: mse-bootstrap [-h] --host HOST --port PORT --app-dir APP_DIR --uuid
+                     UUID [--version] [--debug]
                      (--self-signed EXPIRATION_DATE | --no-ssl | --certificate CERTIFICATE_PATH)
                      application
 
 Bootstrap ASGI/WSGI Python web application for Gramine
 
 positional arguments:
-  application           Application to dispatch to as path.to.module:instance.path
+  application           ASGI application path (as module:app)
 
 optional arguments:
   -h, --help            show this help message and exit
-  --host HOST           Hostname of the configuration serverIf `--self-signed`, it's also the
-                        hostname of the app server
-  --port PORT           Port of the server
-  --app-dir APP_DIR     Path the microservice application. Read only directory.
-  --uuid UUID           Unique application UUID.
+  --host HOST           hostname of the configuration server, also the
+                        hostname of the app server if `--self-signed`
+  --port PORT           port of the server
+  --app-dir APP_DIR     path of the python web application
+  --uuid UUID           unique application UUID
   --version             show program's version number and exit
-  --debug               Debug mode without SGX
+  --debug               debug mode with more logging
   --self-signed EXPIRATION_DATE
-                        Generate a self-signed certificate for the app. Specify the expiration
-                        date of the certificate as a timestamp since Epoch
-  --no-ssl              Don't use HTTPS connection
+                        generate a self-signed certificate for the web app
+                        with a specific expiration date (Unix time)
+  --no-ssl              use HTTP without SSL
   --certificate CERTIFICATE_PATH
-                        Use the given certificate for the SSL connection. the private key will
-                        be sent using the configuration server
+                        custom certificate used for the SSL connection,
+                        private key must be sent through the configuration
+                        server
 
 ```
