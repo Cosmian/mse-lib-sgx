@@ -85,7 +85,7 @@ def certificate(key_dir_path):
         subject=globs.SUBJECT,
         root_path=key_dir_path,
         expiration_date=expiration_date,
-        ratls=False,
+        ratls=None,
     )
 
 

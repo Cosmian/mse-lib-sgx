@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives.serialization import (
 from intel_sgx_ra.quote import Quote
 from intel_sgx_ra.ratls import SGX_QUOTE_EXTENSION_OID, get_quote_from_cert
 
-from mse_lib_sgx.sgx_quote import get_quote
+from mse_lib_sgx.sgx.quote import get_quote
 
 
 class Certificate:
@@ -31,7 +31,7 @@ class Certificate:
         subject: x509.Name,
         root_path: Path,
         expiration_date: datetime,
-        ratls: bool = True,
+        ratls: Optional[bytes],
     ):
         """Init constructor of SGXCertificate."""
         self.cert_path: Path = root_path / "cert.ratls.pem"
@@ -49,20 +49,22 @@ class Certificate:
         self.quote: Optional[Quote] = None
         if self.key_path.exists() and self.cert_path.exists():
             self.cert = x509.load_pem_x509_certificate(data=self.cert_path.read_bytes())
-            if ratls:
+            if ratls is not None:
                 self.quote = get_quote_from_cert(self.cert)
         else:
             custom_extension: Optional[x509.ExtensionType] = None
-            if ratls:
-                self.quote = Quote.from_bytes(
-                    get_quote(
-                        user_report_data=hashlib.sha256(
-                            self.sk.public_key().public_bytes(
-                                encoding=Encoding.X962,
-                                format=PublicFormat.UncompressedPoint,
-                            )
-                        ).digest()
+            if ratls is not None:
+                pubkey_hash: bytes = hashlib.sha256(
+                    self.sk.public_key().public_bytes(
+                        encoding=Encoding.X962,
+                        format=PublicFormat.UncompressedPoint,
                     )
+                ).digest()
+                user_report_data: bytes = (
+                    pubkey_hash + ratls if ratls is not None else pubkey_hash
+                )
+                self.quote = Quote.from_bytes(
+                    get_quote(user_report_data=user_report_data)
                 )
                 custom_extension = x509.UnrecognizedExtension(
                     oid=SGX_QUOTE_EXTENSION_OID, value=bytes(self.quote)

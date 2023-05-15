@@ -12,12 +12,14 @@ from pathlib import Path
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
+from mse_lib_crypto.x25519 import x25519_pk_from_sk
 from mse_lib_crypto.xsalsa20_poly1305 import decrypt_directory
 
 from mse_lib_sgx import __version__, globs
 from mse_lib_sgx.certificate import Certificate, to_wildcard_domain
 from mse_lib_sgx.error import SecurityError
 from mse_lib_sgx.http_server import serve as serve_sgx_secrets
+from mse_lib_sgx.sgx.key import get_mrenclave_key
 
 
 def parse_args() -> argparse.Namespace:
@@ -86,6 +88,7 @@ class SslAppMode(Enum):
     NO_SSL = 3  # no SSL, will be done by the SSL proxy
 
 
+# pylint: disable=too-many-statements
 def run() -> None:
     """Entrypoint of the CLI.
 
@@ -140,17 +143,23 @@ def run() -> None:
 
     logging.info("Generating self-signed certificate...")
 
+    if not globs.ENCLAVE_SK_PATH.exists():
+        globs.ENCLAVE_SK_PATH.write_bytes(get_mrenclave_key())
+
+    enclave_pk: bytes = x25519_pk_from_sk(globs.ENCLAVE_SK_PATH.read_bytes())
+
+    if len(enclave_pk) != 32:
+        raise SecurityError("Bad enclave pk length!")
+
     cert: Certificate = Certificate(
         dns_name=args.host,
         subject=globs.SUBJECT,
         root_path=globs.KEY_DIR_PATH,
         expiration_date=expiration_date,
-        ratls=True,
+        ratls=enclave_pk,
     )
 
-    symkey_path: Path = globs.KEY_DIR_PATH / "code.key"
-
-    if not symkey_path.exists():
+    if not globs.CODE_KEY_PATH.exists():
         logging.info("Starting the configuration server...")
         # The app owner will send:
         # - the uuid of the app (see as an uniq token allowing to query the API)
@@ -168,7 +177,7 @@ def run() -> None:
         if globs.CODE_SECRET_KEY is None:
             raise SecurityError("Code secret key not provided")
 
-        symkey_path.write_bytes(globs.CODE_SECRET_KEY)
+        globs.CODE_KEY_PATH.write_bytes(globs.CODE_SECRET_KEY)
 
         if (
             ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE
@@ -179,7 +188,7 @@ def run() -> None:
 
     decrypt_directory(
         dir_path=args.app_dir,
-        key=symkey_path.read_bytes(),
+        key=globs.CODE_KEY_PATH.read_bytes(),
         ext=".enc",
         out_dir_path=globs.MODULE_DIR_PATH,
     )

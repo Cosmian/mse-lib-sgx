@@ -7,7 +7,10 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from mse_lib_crypto.seal_box import unseal
+
 from mse_lib_sgx import globs
+from mse_lib_sgx.base64url import base64url_decode
 from mse_lib_sgx.certificate import Certificate
 from mse_lib_sgx.error import CryptoError
 
@@ -41,6 +44,19 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
             if app_secrets := data.get("app_secrets"):
                 globs.SECRETS_PATH.parent.mkdir(parents=True, exist_ok=True)
                 globs.SECRETS_PATH.write_bytes(json.dumps(app_secrets).encode("utf-8"))
+
+            if app_sealed_secrets := data.get("app_sealed_secrets"):
+                globs.SEALED_SECRETS_PATH.parent.mkdir(parents=True, exist_ok=True)
+                globs.SEALED_SECRETS_PATH.write_bytes(
+                    json.dumps(
+                        json.loads(
+                            unseal(
+                                base64url_decode(app_sealed_secrets),
+                                globs.ENCLAVE_SK_PATH.read_bytes(),
+                            )
+                        )
+                    ).encode("utf-8")
+                )
 
             # Do not process queries which have not the `uuid` data field
             # Probably a robot
