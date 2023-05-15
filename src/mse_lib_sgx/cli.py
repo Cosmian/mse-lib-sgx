@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import importlib
 import logging
+import shutil
 import sys
 import sysconfig
 from datetime import datetime, timedelta
@@ -51,6 +52,9 @@ def parse_args() -> argparse.Namespace:
         "--uuid", required=True, type=str, help="unique application UUID"
     )
     parser.add_argument(
+        "--plaincode", action="store_true", help="unencrypted python web application"
+    )
+    parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
     parser.add_argument(
@@ -88,7 +92,7 @@ class SslAppMode(Enum):
     NO_SSL = 3  # no SSL, will be done by the SSL proxy
 
 
-# pylint: disable=too-many-statements
+# pylint: disable=too-many-statements,too-many-branches
 def run() -> None:
     """Entrypoint of the CLI.
 
@@ -118,6 +122,9 @@ def run() -> None:
         level=logging.DEBUG if args.debug else logging.INFO,
         format="[%(asctime)s] [%(levelname)s] %(message)s",
     )
+
+    if args.plaincode:
+        globs.PLAINCODE = True
 
     ssl_private_key_path = None
     expiration_date = datetime.now() + timedelta(hours=10)
@@ -174,10 +181,11 @@ def run() -> None:
             timeout=globs.TIMEOUT,
         )
 
-        if globs.CODE_SECRET_KEY is None:
+        if not globs.PLAINCODE and globs.CODE_SECRET_KEY is None:
             raise SecurityError("Code secret key not provided")
 
-        globs.CODE_KEY_PATH.write_bytes(globs.CODE_SECRET_KEY)
+        if not globs.PLAINCODE and globs.CODE_SECRET_KEY is not None:
+            globs.CODE_KEY_PATH.write_bytes(globs.CODE_SECRET_KEY)
 
         if (
             ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE
@@ -186,12 +194,15 @@ def run() -> None:
         ):
             ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
 
-    decrypt_directory(
-        dir_path=args.app_dir,
-        key=globs.CODE_KEY_PATH.read_bytes(),
-        ext=".enc",
-        out_dir_path=globs.MODULE_DIR_PATH,
-    )
+    if globs.PLAINCODE:
+        shutil.copy(args.app_dir, globs.MODULE_DIR_PATH)
+    else:
+        decrypt_directory(
+            dir_path=args.app_dir,
+            key=globs.CODE_KEY_PATH.read_bytes(),
+            ext=".enc",
+            out_dir_path=globs.MODULE_DIR_PATH,
+        )
 
     config_map = {
         "bind": f"0.0.0.0:{args.port}",

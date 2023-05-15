@@ -68,10 +68,11 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
             if globs.NEED_SSL_PRIVATE_KEY:
                 globs.SSL_PRIVATE_KEY = data["ssl_private_key"]
 
-            globs.CODE_SECRET_KEY = bytes.fromhex(data["code_secret_key"])
+            if not globs.PLAINCODE:
+                globs.CODE_SECRET_KEY = bytes.fromhex(data["code_secret_key"])
 
-            if len(globs.CODE_SECRET_KEY) != 32:
-                raise CryptoError("Incorrect key length!")
+                if len(globs.CODE_SECRET_KEY) != 32:
+                    raise CryptoError("Incorrect key length!")
         except (KeyError, ValueError, json.JSONDecodeError, CryptoError) as exc:
             logging.error(exc)
             self.send_response_only(401)
