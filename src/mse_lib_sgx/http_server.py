@@ -73,7 +73,8 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
 
                 if len(globs.CODE_SECRET_KEY) != 32:
                     raise CryptoError("Incorrect key length!")
-        except (KeyError, ValueError, json.JSONDecodeError, CryptoError) as exc:
+        # might be: KeyError, ValueError, json.JSONDecodeError, CryptoError
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             logging.error(exc)
             self.send_response_only(401)
             self.end_headers()
