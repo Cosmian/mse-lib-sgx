@@ -3,6 +3,7 @@ from mse_lib_sgx.certificate import to_wildcard_domain
 
 def test_wildcard():
     assert to_wildcard_domain("localhost") == "localhost"
+    assert to_wildcard_domain("127.0.0.1") == "127.0.0.1"
     assert to_wildcard_domain("cosmian.app") == "cosmian.app"
     assert to_wildcard_domain(".cosmian.app") == "*.cosmian.app"
     assert (

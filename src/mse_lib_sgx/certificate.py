@@ -1,6 +1,7 @@
 """mse_lib_sgx.certificate module."""
 
 import hashlib
+import ipaddress
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, cast
@@ -130,12 +131,17 @@ def generate_x509(
 
 def to_wildcard_domain(domain: str) -> str:
     """Add wildcard to first subdomain."""
-    if "." not in domain:
-        return domain
+    try:
+        _ = ipaddress.ip_address(domain)
+    except ValueError:
+        if "." not in domain:
+            return domain
 
-    subdomains: List[str] = urlparse(f"//{domain}").netloc.split(".")
+        subdomains: List[str] = urlparse(f"//{domain}").netloc.split(".")
 
-    if len(subdomains) <= 2:
-        return domain
+        if len(subdomains) <= 2:
+            return domain
 
-    return f"*.{'.'.join(subdomains[1:])}"
+        return f"*.{'.'.join(subdomains[1:])}"
+
+    return domain
