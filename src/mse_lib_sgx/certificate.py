@@ -4,7 +4,7 @@ import hashlib
 import ipaddress
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, cast
+from typing import List, Optional, Union, cast
 from urllib.parse import urlparse
 
 from cryptography import x509
@@ -28,7 +28,7 @@ class Certificate:
 
     def __init__(
         self,
-        dns_name: str,
+        subject_alternative_name: str,
         subject: x509.Name,
         root_path: Path,
         expiration_date: datetime,
@@ -71,7 +71,7 @@ class Certificate:
                     oid=SGX_QUOTE_EXTENSION_OID, value=bytes(self.quote)
                 )
             self.cert = generate_x509(
-                dns_name=dns_name,
+                subject_alternative_name=subject_alternative_name,
                 subject=subject,
                 private_key=self.sk,
                 expiration_date=self.expiration_date,
@@ -94,7 +94,7 @@ class Certificate:
 
 
 def generate_x509(
-    dns_name: str,
+    subject_alternative_name: str,
     subject: x509.Name,
     private_key: ec.EllipticCurvePrivateKey,
     expiration_date: datetime,
@@ -102,6 +102,12 @@ def generate_x509(
 ) -> x509.Certificate:
     """X509 certificate generation."""
     issuer: x509.Name = subject  # issuer=subject for self-signed certificate
+
+    san: Union[x509.IPAddress, x509.DNSName]
+    try:
+        san = x509.IPAddress(ipaddress.ip_address(subject_alternative_name))
+    except ValueError:
+        san = x509.DNSName(subject_alternative_name)
 
     builder: x509.CertificateBuilder = x509.CertificateBuilder()
 
@@ -113,7 +119,7 @@ def generate_x509(
         .not_valid_before(datetime.utcnow())
         .not_valid_after(expiration_date)
         .add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(dns_name)]),
+            x509.SubjectAlternativeName([san]),
             critical=False,
         )
     )

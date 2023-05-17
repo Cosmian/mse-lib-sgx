@@ -17,7 +17,7 @@ from mse_lib_crypto.x25519 import x25519_pk_from_sk
 from mse_lib_crypto.xsalsa20_poly1305 import decrypt_directory
 
 from mse_lib_sgx import __version__, globs
-from mse_lib_sgx.certificate import Certificate, to_wildcard_domain
+from mse_lib_sgx.certificate import Certificate
 from mse_lib_sgx.error import SecurityError
 from mse_lib_sgx.http_server import serve as serve_sgx_secrets
 from mse_lib_sgx.sgx.key import get_mrenclave_key
@@ -36,12 +36,14 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--host",
-        required=True,
         type=str,
-        help="hostname of the configuration server, "
-        "also the hostname of the app server if `--self-signed`",
+        default="0.0.0.0",
+        help="hostname of the server",
     )
-    parser.add_argument("--port", required=True, type=int, help="port of the server")
+    parser.add_argument("--port", type=int, default=443, help="port of the server")
+    parser.add_argument(
+        "--san", type=str, help="Subject Alternative Name in the X.509 certificate"
+    )
     parser.add_argument(
         "--app-dir",
         required=True,
@@ -134,10 +136,6 @@ def run() -> None:
 
     ssl_private_key_path = None
     expiration_date = datetime.now() + timedelta(hours=10)
-    common_name: str = to_wildcard_domain(args.host)
-
-    if not common_name:
-        raise SecurityError(f"Can't parse host to extract Common Name: {args.host}")
 
     ssl_app_mode: SslAppMode
     if args.no_ssl:
@@ -165,7 +163,7 @@ def run() -> None:
         raise SecurityError("Bad enclave pk length!")
 
     cert: Certificate = Certificate(
-        dns_name=args.host,
+        subject_alternative_name=args.san if args.san else "localhost",
         subject=globs.SUBJECT,
         root_path=globs.KEY_DIR_PATH,
         expiration_date=expiration_date,
@@ -179,7 +177,7 @@ def run() -> None:
         # - the key to decrypt the code
         # - (optional) the SSL private key if AppConnection.OWNER_CERTFICIATE
         serve_sgx_secrets(
-            hostname="0.0.0.0",
+            hostname=args.host,
             port=args.port,
             certificate=cert,
             uuid=args.uuid,
@@ -211,7 +209,7 @@ def run() -> None:
         )
 
     config_map = {
-        "bind": f"0.0.0.0:{args.port}",
+        "bind": f"{args.host}:{args.port}",
         "alpn_protocols": ["h2"],
         "workers": 1,
         "accesslog": "-",
