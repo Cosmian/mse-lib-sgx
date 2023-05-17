@@ -7,6 +7,7 @@ import logging
 import shutil
 import sys
 import sysconfig
+import uuid
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -57,7 +58,10 @@ def parse_args() -> argparse.Namespace:
         help="path of the python web application",
     )
     parser.add_argument(
-        "--uuid", required=True, type=str, help="unique application UUID"
+        "--id",
+        required=True,
+        type=uuid.UUID,
+        help="identifier of the application as UUID in RFC 4122",
     )
     parser.add_argument(
         "--plaincode", action="store_true", help="unencrypted python web application"
