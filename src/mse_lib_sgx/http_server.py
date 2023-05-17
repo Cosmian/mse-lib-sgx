@@ -6,6 +6,7 @@ import ssl
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Optional
 
 from mse_lib_crypto.seal_box import unseal
 
@@ -91,7 +92,7 @@ def serve(
     certificate: Certificate,
     uuid: str,
     need_ssl_private_key: bool,
-    timeout: int,
+    timeout: Optional[int],
 ):
     """Serve simple SGX HTTP server."""
     globs.NEED_SSL_PRIVATE_KEY = need_ssl_private_key
@@ -107,10 +108,11 @@ def serve(
 
     httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
 
-    timer = threading.Timer(interval=timeout, function=kill)
-    timer.start()
+    if timeout is not None:
+        timer = threading.Timer(interval=timeout, function=kill)
+        timer.start()
 
-    threading.Thread(target=kill_event, args=(httpd, timer)).start()
+        threading.Thread(target=kill_event, args=(httpd, timer)).start()
 
     httpd.serve_forever()
 

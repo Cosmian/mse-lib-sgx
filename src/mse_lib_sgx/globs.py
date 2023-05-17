@@ -39,4 +39,4 @@ SUBJECT: x509.Name = x509.Name(
     ]
 )
 
-TIMEOUT: int = 300
+TIMEOUT: Optional[int] = None

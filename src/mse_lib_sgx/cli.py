@@ -55,6 +55,9 @@ def parse_args() -> argparse.Namespace:
         "--plaincode", action="store_true", help="unencrypted python web application"
     )
     parser.add_argument(
+        "--timeout", type=int, help="seconds before closing the configuration server"
+    )
+    parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
     parser.add_argument(
@@ -125,6 +128,9 @@ def run() -> None:
 
     if args.plaincode:
         globs.PLAINCODE = True
+
+    if args.timeout:
+        globs.TIMEOUT = args.timeout
 
     ssl_private_key_path = None
     expiration_date = datetime.now() + timedelta(hours=10)
