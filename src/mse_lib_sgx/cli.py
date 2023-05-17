@@ -79,10 +79,10 @@ def parse_args() -> argparse.Namespace:
     group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument(
-        "--self-signed",
+        "--ratls",
         type=int,
         metavar="EXPIRATION_DATE",
-        help="generate a self-signed certificate for the web app with a "
+        help="generate a self-signed certificate for RA-TLS with a "
         "specific expiration date (Unix time)",
     )
 
@@ -160,7 +160,7 @@ def run() -> None:
     else:
         # The conf server and the app server will use the same self-signed cert
         ssl_app_mode = SslAppMode.RATLS_CERTIFICATE
-        expiration_date = datetime.utcfromtimestamp(args.self_signed)
+        expiration_date = datetime.utcfromtimestamp(args.ratls)
 
     logging.info("Generating self-signed certificate...")
 
