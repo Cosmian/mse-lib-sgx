@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 
+from cryptography import x509
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from mse_lib_crypto.x25519 import x25519_pk_from_sk
@@ -42,7 +43,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--port", type=int, default=443, help="port of the server")
     parser.add_argument(
-        "--san", type=str, help="Subject Alternative Name in the X.509 certificate"
+        "--subject",
+        type=str,
+        help="Subject as RFC 4514 string for the RA-TLS certificate",
+    )
+    parser.add_argument(
+        "--san", type=str, help="Subject Alternative Name in the RA-TLS certificate"
     )
     parser.add_argument(
         "--app-dir",
@@ -164,7 +170,11 @@ def run() -> None:
 
     cert: Certificate = Certificate(
         subject_alternative_name=args.san if args.san else "localhost",
-        subject=globs.SUBJECT,
+        subject=(
+            x509.Name.from_rfc4514_string(args.subject)
+            if args.subject
+            else globs.SUBJECT
+        ),
         root_path=globs.KEY_DIR_PATH,
         expiration_date=expiration_date,
         ratls=enclave_pk,
