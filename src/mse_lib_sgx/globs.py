@@ -4,6 +4,7 @@ import os
 import threading
 from pathlib import Path
 from typing import Optional
+from uuid import UUID
 
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -12,7 +13,7 @@ CODE_SECRET_KEY: Optional[bytes] = None
 
 EXIT_EVENT: threading.Event = threading.Event()
 
-ID: Optional[str] = None
+ID: Optional[UUID] = None
 
 SSL_PRIVATE_KEY: Optional[str] = None
 NEED_SSL_PRIVATE_KEY: bool = False

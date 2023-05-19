@@ -4,6 +4,7 @@ import multiprocessing
 import os
 from pathlib import Path
 import time
+from uuid import UUID
 
 import mse_lib_sgx.http_server
 from mse_lib_sgx.certificate import Certificate
@@ -72,8 +73,8 @@ def port() -> int:
 
 
 @pytest.fixture(scope="module")
-def uuid() -> str:
-    return "00000000-0000-0000-0000-000000000000"
+def uuid() -> UUID:
+    return UUID("00000000-0000-0000-0000-000000000000")
 
 
 @pytest.fixture(scope="module")

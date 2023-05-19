@@ -7,6 +7,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Optional
+from uuid import UUID
 
 from mse_lib_crypto.seal_box import unseal
 
@@ -63,7 +64,7 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
 
             # Do not process queries which have not the `uuid` data field
             # Probably a robot
-            if data["uuid"] != globs.ID:
+            if UUID(data["uuid"]) != globs.ID:
                 self.send_response_only(401)
                 self.end_headers()
                 return
@@ -92,7 +93,7 @@ def serve(
     hostname: str,
     port: int,
     certificate: Certificate,
-    app_id: str,
+    app_id: UUID,
     need_ssl_private_key: bool,
     timeout: Optional[int],
 ):

@@ -23,7 +23,7 @@ def test_bad_uuid(
         url=f"https://{host}:{port}", headers={"Content-Type": "application/json"}
     )
     data: bytes = json.dumps(
-        {"uuid": uuid, "code_secret_key": code_secret_key.hex()}
+        {"uuid": str(uuid), "code_secret_key": code_secret_key.hex()}
     ).encode("utf-8")
     req.add_header("Content-Length", str(len(data)))
     ctx = ssl.create_default_context()
@@ -46,7 +46,7 @@ def test_no_secret_key(
     req = urllib.request.Request(
         url=f"https://{host}:{port}", headers={"Content-Type": "application/json"}
     )
-    data: bytes = json.dumps({"uuid": uuid}).encode("utf-8")
+    data: bytes = json.dumps({"uuid": str(uuid)}).encode("utf-8")
     req.add_header("Content-Length", str(len(data)))
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
@@ -93,7 +93,7 @@ def test_good_flow(
         url=f"https://{host}:{port}", headers={"Content-Type": "application/json"}
     )
     data: bytes = json.dumps(
-        {"uuid": uuid, "code_secret_key": code_secret_key.hex()}
+        {"uuid": str(uuid), "code_secret_key": code_secret_key.hex()}
     ).encode("utf-8")
     req.add_header("Content-Length", str(len(data)))
     ctx = ssl.create_default_context()
