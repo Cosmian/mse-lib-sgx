@@ -116,16 +116,21 @@ def serve(
         timer.start()
 
         threading.Thread(target=kill_event, args=(httpd, timer)).start()
+    else:
+        threading.Thread(target=kill_event, args=(httpd, None)).start()
 
     httpd.serve_forever()
 
 
-def kill_event(httpd: HTTPServer, timer: threading.Timer):
+def kill_event(httpd: HTTPServer, timer: Optional[threading.Timer]):
     """Kill HTTP server in a thread if `EXIT_EVENT` is set."""
     while True:
         if globs.EXIT_EVENT.is_set():
             logging.info("Stopping the configuration server...")
-            timer.cancel()
+
+            if timer:
+                timer.cancel()
+
             httpd.shutdown()
             return
 
