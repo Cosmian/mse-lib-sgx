@@ -194,7 +194,7 @@ def run() -> None:
             hostname=args.host,
             port=args.port,
             certificate=cert,
-            uuid=args.uuid,
+            app_id=args.id,
             need_ssl_private_key=ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE,
             timeout=globs.TIMEOUT,
         )

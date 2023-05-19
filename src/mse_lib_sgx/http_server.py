@@ -38,7 +38,9 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
         # body is a json withthese fields:
         # - uuid
         # - (optional) ssl_private_key
-        # - code_sealed_key
+        # - (optional) app_secrets
+        # - (optional) app_sealed_secrets
+        # - code_secret_key
         try:
             data = json.loads(body.decode("utf8"))
 
@@ -61,7 +63,7 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
 
             # Do not process queries which have not the `uuid` data field
             # Probably a robot
-            if data["uuid"] != globs.UUID:
+            if data["uuid"] != globs.ID:
                 self.send_response_only(401)
                 self.end_headers()
                 return
@@ -90,13 +92,13 @@ def serve(
     hostname: str,
     port: int,
     certificate: Certificate,
-    uuid: str,
+    app_id: str,
     need_ssl_private_key: bool,
     timeout: Optional[int],
 ):
     """Serve simple SGX HTTP server."""
     globs.NEED_SSL_PRIVATE_KEY = need_ssl_private_key
-    globs.UUID = uuid
+    globs.ID = app_id
 
     httpd = HTTPServer((hostname, port), SGXHTTPRequestHandler)
 
