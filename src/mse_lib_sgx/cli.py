@@ -131,7 +131,6 @@ def run() -> None:
 
     globs.HOME_DIR_PATH.mkdir(exist_ok=True)
     globs.KEY_DIR_PATH.mkdir(exist_ok=True)
-    globs.MODULE_DIR_PATH.mkdir(exist_ok=True)
 
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
@@ -184,7 +183,7 @@ def run() -> None:
         ratls=enclave_pk,
     )
 
-    if not globs.CODE_KEY_PATH.exists():
+    if not globs.MODULE_DIR_PATH.exists():
         logging.info("Starting the configuration server...")
         # The app owner will send:
         # - the uuid of the app (see as an uniq token allowing to query the API)
@@ -212,20 +211,18 @@ def run() -> None:
         ):
             ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
 
-    if globs.PLAINCODE:
-        shutil.copytree(
-            src=args.app_dir,
-            dst=globs.MODULE_DIR_PATH,
-            copy_function=shutil.copy,
-            dirs_exist_ok=True,
-        )
-    else:
-        decrypt_directory(
-            dir_path=args.app_dir,
-            key=globs.CODE_KEY_PATH.read_bytes(),
-            ext=".enc",
-            out_dir_path=globs.MODULE_DIR_PATH,
-        )
+        if globs.PLAINCODE:
+            shutil.copytree(
+                src=args.app_dir, dst=globs.MODULE_DIR_PATH, copy_function=shutil.copy
+            )
+        else:
+            globs.MODULE_DIR_PATH.mkdir()
+            decrypt_directory(
+                dir_path=args.app_dir,
+                key=globs.CODE_KEY_PATH.read_bytes(),
+                ext=".enc",
+                out_dir_path=globs.MODULE_DIR_PATH,
+            )
 
     config_map = {
         "bind": f"{args.host}:{args.port}",
