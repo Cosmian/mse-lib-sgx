@@ -213,7 +213,7 @@ def run() -> None:
             ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
 
     if globs.PLAINCODE:
-        shutil.copytree(args.app_dir, globs.MODULE_DIR_PATH)
+        shutil.copytree(args.app_dir, globs.MODULE_DIR_PATH, dirs_exist_ok=True)
     else:
         decrypt_directory(
             dir_path=args.app_dir,
