@@ -211,7 +211,12 @@ def run() -> None:
             out_dir_path=globs.MODULE_DIR_PATH,
         )
     else:
-        shutil.copytree(args.app_dir, globs.MODULE_DIR_PATH, dirs_exist_ok=True)
+        shutil.copytree(
+            src=args.app_dir,
+            dst=globs.MODULE_DIR_PATH,
+            copy_function=shutil.copy,
+            dirs_exist_ok=True,
+        )
 
     config_map = {
         "bind": f"{args.host}:{args.port}",
