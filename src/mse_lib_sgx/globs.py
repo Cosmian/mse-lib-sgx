@@ -17,6 +17,7 @@ ID: Optional[UUID] = None
 
 SSL_PRIVATE_KEY: Optional[str] = None
 NEED_SSL_PRIVATE_KEY: bool = False
+PLAINCODE: bool = False
 
 HOME_DIR_PATH: Path = Path(os.getenv("HOME", "/root"))
 KEY_DIR_PATH: Path = Path(os.getenv("KEY_PATH", "/key"))

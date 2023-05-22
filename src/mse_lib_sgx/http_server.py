@@ -72,7 +72,7 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
             if globs.NEED_SSL_PRIVATE_KEY:
                 globs.SSL_PRIVATE_KEY = data["ssl_private_key"]
 
-            if "code_secret_key" in data:
+            if not globs.PLAINCODE:
                 globs.CODE_SECRET_KEY = bytes.fromhex(data["code_secret_key"])
 
                 if len(globs.CODE_SECRET_KEY) != 32:

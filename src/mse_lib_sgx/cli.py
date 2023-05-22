@@ -64,6 +64,9 @@ def parse_args() -> argparse.Namespace:
         help="identifier of the application as UUID in RFC 4122",
     )
     parser.add_argument(
+        "--plaincode", action="store_true", help="unencrypted python web application"
+    )
+    parser.add_argument(
         "--timeout", type=int, help="seconds before closing the configuration server"
     )
     parser.add_argument(
@@ -135,6 +138,9 @@ def run() -> None:
         format="[%(asctime)s] [%(levelname)s] %(message)s",
     )
 
+    if args.plaincode:
+        globs.PLAINCODE = True
+
     if args.timeout:
         globs.TIMEOUT = args.timeout
 
@@ -193,7 +199,10 @@ def run() -> None:
             timeout=globs.TIMEOUT,
         )
 
-        if globs.CODE_SECRET_KEY is not None:
+        if not globs.PLAINCODE and globs.CODE_SECRET_KEY is None:
+            raise SecurityError("Code secret key not provided")
+
+        if not globs.PLAINCODE and globs.CODE_SECRET_KEY is not None:
             globs.CODE_KEY_PATH.write_bytes(globs.CODE_SECRET_KEY)
 
         if (
@@ -203,19 +212,19 @@ def run() -> None:
         ):
             ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
 
-    if globs.CODE_SECRET_KEY is not None:
-        decrypt_directory(
-            dir_path=args.app_dir,
-            key=globs.CODE_KEY_PATH.read_bytes(),
-            ext=".enc",
-            out_dir_path=globs.MODULE_DIR_PATH,
-        )
-    else:
+    if globs.PLAINCODE:
         shutil.copytree(
             src=args.app_dir,
             dst=globs.MODULE_DIR_PATH,
             copy_function=shutil.copy,
             dirs_exist_ok=True,
+        )
+    else:
+        decrypt_directory(
+            dir_path=args.app_dir,
+            key=globs.CODE_KEY_PATH.read_bytes(),
+            ext=".enc",
+            out_dir_path=globs.MODULE_DIR_PATH,
         )
 
     config_map = {
