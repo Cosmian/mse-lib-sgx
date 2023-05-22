@@ -20,6 +20,7 @@ from mse_lib_crypto.xsalsa20_poly1305 import decrypt_directory
 
 from mse_lib_sgx import __version__, globs
 from mse_lib_sgx.certificate import Certificate
+from mse_lib_sgx.copy import copytree
 from mse_lib_sgx.error import SecurityError
 from mse_lib_sgx.http_server import serve as serve_sgx_secrets
 from mse_lib_sgx.sgx.key import get_mrenclave_key
@@ -212,7 +213,7 @@ def run() -> None:
             ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
 
         if globs.PLAINCODE:
-            shutil.copytree(
+            copytree(
                 src=args.app_dir, dst=globs.MODULE_DIR_PATH, copy_function=shutil.copy
             )
         else:
