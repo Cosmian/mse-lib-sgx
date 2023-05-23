@@ -138,9 +138,6 @@ def run() -> None:
         format="[%(asctime)s] [%(levelname)s] %(message)s",
     )
 
-    if args.plaincode:
-        globs.PLAINCODE = True
-
     if args.timeout:
         globs.TIMEOUT = args.timeout
 
@@ -199,24 +196,8 @@ def run() -> None:
             timeout=globs.TIMEOUT,
         )
 
-        if not globs.PLAINCODE and globs.CODE_SECRET_KEY is None:
-            raise SecurityError("Code secret key not provided")
-
-        if not globs.PLAINCODE and globs.CODE_SECRET_KEY is not None:
+        if globs.CODE_SECRET_KEY is not None:
             globs.CODE_KEY_PATH.write_bytes(globs.CODE_SECRET_KEY)
-
-        if (
-            ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE
-            and globs.SSL_PRIVATE_KEY
-            and ssl_private_key_path is not None
-        ):
-            ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
-
-        if globs.PLAINCODE:
-            copytree(
-                src=args.app_dir, dst=globs.MODULE_DIR_PATH, copy_function=shutil.copy
-            )
-        else:
             globs.MODULE_DIR_PATH.mkdir()
             decrypt_directory(
                 dir_path=args.app_dir,
@@ -224,6 +205,17 @@ def run() -> None:
                 ext=".enc",
                 out_dir_path=globs.MODULE_DIR_PATH,
             )
+        else:
+            copytree(
+                src=args.app_dir, dst=globs.MODULE_DIR_PATH, copy_function=shutil.copy
+            )
+
+        if (
+            ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE
+            and globs.SSL_PRIVATE_KEY
+            and ssl_private_key_path is not None
+        ):
+            ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
 
     config_map = {
         "bind": f"{args.host}:{args.port}",

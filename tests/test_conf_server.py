@@ -34,28 +34,6 @@ def test_bad_uuid(
         urllib.request.urlopen(req, data, context=ctx)
 
 
-def test_no_secret_key(
-    set_env,
-    uuid,
-    host,
-    port,
-    conf_server,
-):
-    assert conf_server.is_alive()
-
-    req = urllib.request.Request(
-        url=f"https://{host}:{port}", headers={"Content-Type": "application/json"}
-    )
-    data: bytes = json.dumps({"uuid": str(uuid)}).encode("utf-8")
-    req.add_header("Content-Length", str(len(data)))
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-
-    with pytest.raises(urllib.error.HTTPError):
-        urllib.request.urlopen(req, data, context=ctx)
-
-
 def test_no_uuid(
     set_env,
     code_secret_key,
