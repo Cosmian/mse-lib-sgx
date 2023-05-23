@@ -1,3 +1,3 @@
 """mse_lib_sgx module."""
 
-__version__ = "2.0a11"
+__version__ = "2.0a12"
