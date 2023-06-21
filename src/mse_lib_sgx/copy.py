@@ -1,79 +1,9 @@
 """mse_lib_sgx.copy module."""
 
 import os
-import shutil
 import stat
 import sys
-from shutil import Error, copy, copy2, rmtree
-
-
-# pylint: disable=all
-def move(src, dst, copy_function=copy2):
-    """Recursively move a file or directory to another location.
-
-    This is similar to the Unix "mv" command. Return the file or directory's
-    destination.
-
-    If the destination is a directory or a symlink to a directory, the source
-    is moved inside the directory. The destination path must not already
-    exist.
-
-    If the destination already exists but is not a directory, it may be
-    overwritten depending on os.rename() semantics.
-
-    If the destination is on our current filesystem, then rename() is used.
-    Otherwise, src is copied to the destination and then removed. Symlinks are
-    recreated under the new name if os.rename() fails because of cross
-    filesystem renames.
-
-    The optional `copy_function` argument is a callable that will be used
-    to copy the source or it will be delegated to `copytree`.
-    By default, copy2() is used, but any function that supports the same
-    signature (like copy()) can be used.
-
-    A lot more could be done here...  A look at a mv.c shows a lot of
-    the issues this implementation glosses over.
-
-    """
-    sys.audit("shutil.move", src, dst)
-    real_dst = dst
-    if os.path.isdir(dst):
-        if shutil._samefile(src, dst):
-            # We might be on a case insensitive filesystem,
-            # perform the rename anyway.
-            os.rename(src, dst)
-            return
-
-        real_dst = os.path.join(dst, shutil._basename(src))
-        if os.path.exists(real_dst):
-            raise Error("Destination path '%s' already exists" % real_dst)
-    try:
-        os.rename(src, real_dst)
-    except OSError:
-        if os.path.islink(src):
-            linkto = os.readlink(src)
-            os.symlink(linkto, real_dst)
-            os.unlink(src)
-        elif os.path.isdir(src):
-            if shutil._destinsrc(src, dst):
-                raise Error(
-                    "Cannot move a directory '%s' into itself" " '%s'." % (src, dst)
-                )
-            if shutil._is_immutable(src) or (
-                not os.access(src, os.W_OK)
-                and os.listdir(src)
-                and sys.platform == "darwin"
-            ):
-                raise PermissionError(
-                    "Cannot move the non-empty directory "
-                    "'%s': Lacking write permission to '%s'." % (src, src)
-                )
-            copytree(src, real_dst, copy_function=copy_function, symlinks=True)
-            rmtree(src)
-        else:
-            copy_function(src, real_dst)
-            os.unlink(src)
-    return real_dst
+from shutil import Error, copy, copy2
 
 
 # pylint: disable=too-many-branches
