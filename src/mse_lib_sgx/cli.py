@@ -20,6 +20,7 @@ from mse_lib_crypto.xsalsa20_poly1305 import decrypt_directory
 
 from mse_lib_sgx import __version__, globs
 from mse_lib_sgx.certificate import Certificate
+from mse_lib_sgx.copy import move
 from mse_lib_sgx.error import SecurityError
 from mse_lib_sgx.http_server import serve as serve_sgx_secrets
 from mse_lib_sgx.sgx.key import get_mrenclave_key
@@ -205,9 +206,7 @@ def run() -> None:
                 out_dir_path=globs.MODULE_DIR_PATH,
             )
         else:
-            shutil.move(
-                src=args.app_dir, dst=globs.MODULE_DIR_PATH, copy_function=shutil.copy
-            )
+            move(src=args.app_dir, dst=globs.MODULE_DIR_PATH, copy_function=shutil.copy)
 
         if (
             ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE
