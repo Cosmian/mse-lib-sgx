@@ -33,7 +33,7 @@ setup(
     long_description_content_type="text/markdown",
     zip_safe=False,
     install_requires=[
-        "cryptography>=40.0.2,<40.1.0",
+        "cryptography>=41.0.1,<42.0.0",
         "intel-sgx-ra==2.0a11",
         "hypercorn[uvloop]>=0.14.3,<0.15.0",
         "h2>=4.1.0,<4.2.0",
