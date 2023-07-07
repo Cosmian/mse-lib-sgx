@@ -1,4 +1,4 @@
-"""mse_lib_sgx.sgx_quote module."""
+"""mse_lib_sgx.sgx.quote module."""
 
 from mse_lib_sgx.error import SGXError
 

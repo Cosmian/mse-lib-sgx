@@ -6,8 +6,13 @@ import ssl
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Optional
+from uuid import UUID
+
+from mse_lib_crypto.seal_box import unseal
 
 from mse_lib_sgx import globs
+from mse_lib_sgx.base64url import base64url_decode
 from mse_lib_sgx.certificate import Certificate
 from mse_lib_sgx.error import CryptoError
 
@@ -34,7 +39,9 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
         # body is a json withthese fields:
         # - uuid
         # - (optional) ssl_private_key
-        # - code_sealed_key
+        # - (optional) app_secrets
+        # - (optional) app_sealed_secrets
+        # - code_secret_key
         try:
             data = json.loads(body.decode("utf8"))
 
@@ -42,9 +49,22 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
                 globs.SECRETS_PATH.parent.mkdir(parents=True, exist_ok=True)
                 globs.SECRETS_PATH.write_bytes(json.dumps(app_secrets).encode("utf-8"))
 
+            if app_sealed_secrets := data.get("app_sealed_secrets"):
+                globs.SEALED_SECRETS_PATH.parent.mkdir(parents=True, exist_ok=True)
+                globs.SEALED_SECRETS_PATH.write_bytes(
+                    json.dumps(
+                        json.loads(
+                            unseal(
+                                base64url_decode(app_sealed_secrets),
+                                globs.ENCLAVE_SK_PATH.read_bytes(),
+                            )
+                        )
+                    ).encode("utf-8")
+                )
+
             # Do not process queries which have not the `uuid` data field
             # Probably a robot
-            if data["uuid"] != globs.UUID:
+            if UUID(data["uuid"]) != globs.ID:
                 self.send_response_only(401)
                 self.end_headers()
                 return
@@ -52,11 +72,13 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
             if globs.NEED_SSL_PRIVATE_KEY:
                 globs.SSL_PRIVATE_KEY = data["ssl_private_key"]
 
-            globs.CODE_SECRET_KEY = bytes.fromhex(data["code_secret_key"])
+            if "code_secret_key" in data:
+                globs.CODE_SECRET_KEY = bytes.fromhex(data["code_secret_key"])
 
-            if len(globs.CODE_SECRET_KEY) != 32:
-                raise CryptoError("Incorrect key length!")
-        except (KeyError, ValueError, json.JSONDecodeError, CryptoError) as exc:
+                if len(globs.CODE_SECRET_KEY) != 32:
+                    raise CryptoError("Incorrect key length!")
+        # might be: KeyError, ValueError, json.JSONDecodeError, CryptoError
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             logging.error(exc)
             self.send_response_only(401)
             self.end_headers()
@@ -71,13 +93,13 @@ def serve(
     hostname: str,
     port: int,
     certificate: Certificate,
-    uuid: str,
+    app_id: UUID,
     need_ssl_private_key: bool,
-    timeout: int,
+    timeout: Optional[int],
 ):
     """Serve simple SGX HTTP server."""
     globs.NEED_SSL_PRIVATE_KEY = need_ssl_private_key
-    globs.UUID = uuid
+    globs.ID = app_id
 
     httpd = HTTPServer((hostname, port), SGXHTTPRequestHandler)
 
@@ -89,20 +111,26 @@ def serve(
 
     httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
 
-    timer = threading.Timer(interval=timeout, function=kill)
-    timer.start()
+    if timeout is not None:
+        timer = threading.Timer(interval=timeout, function=kill)
+        timer.start()
 
-    threading.Thread(target=kill_event, args=(httpd, timer)).start()
+        threading.Thread(target=kill_event, args=(httpd, timer)).start()
+    else:
+        threading.Thread(target=kill_event, args=(httpd, None)).start()
 
     httpd.serve_forever()
 
 
-def kill_event(httpd: HTTPServer, timer: threading.Timer):
+def kill_event(httpd: HTTPServer, timer: Optional[threading.Timer]):
     """Kill HTTP server in a thread if `EXIT_EVENT` is set."""
     while True:
         if globs.EXIT_EVENT.is_set():
             logging.info("Stopping the configuration server...")
-            timer.cancel()
+
+            if timer:
+                timer.cancel()
+
             httpd.shutdown()
             return
 

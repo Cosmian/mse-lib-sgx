@@ -4,6 +4,7 @@ import multiprocessing
 import os
 from pathlib import Path
 import time
+from uuid import UUID
 
 import mse_lib_sgx.http_server
 from mse_lib_sgx.certificate import Certificate
@@ -72,8 +73,8 @@ def port() -> int:
 
 
 @pytest.fixture(scope="module")
-def uuid() -> str:
-    return "00000000-0000-0000-0000-000000000000"
+def uuid() -> UUID:
+    return UUID("00000000-0000-0000-0000-000000000000")
 
 
 @pytest.fixture(scope="module")
@@ -81,11 +82,11 @@ def certificate(key_dir_path):
     expiration_date = datetime.now() + timedelta(hours=10)
 
     return Certificate(
-        dns_name="localhost",
+        subject_alternative_name="localhost",
         subject=globs.SUBJECT,
         root_path=key_dir_path,
         expiration_date=expiration_date,
-        ratls=False,
+        ratls=None,
     )
 
 

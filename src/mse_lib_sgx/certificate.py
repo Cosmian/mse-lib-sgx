@@ -1,9 +1,10 @@
 """mse_lib_sgx.certificate module."""
 
 import hashlib
+import ipaddress
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, cast
+from typing import List, Optional, Union, cast
 from urllib.parse import urlparse
 
 from cryptography import x509
@@ -19,7 +20,7 @@ from cryptography.hazmat.primitives.serialization import (
 from intel_sgx_ra.quote import Quote
 from intel_sgx_ra.ratls import SGX_QUOTE_EXTENSION_OID, get_quote_from_cert
 
-from mse_lib_sgx.sgx_quote import get_quote
+from mse_lib_sgx.sgx.quote import get_quote
 
 
 class Certificate:
@@ -27,11 +28,11 @@ class Certificate:
 
     def __init__(
         self,
-        dns_name: str,
+        subject_alternative_name: str,
         subject: x509.Name,
         root_path: Path,
         expiration_date: datetime,
-        ratls: bool = True,
+        ratls: Optional[bytes],
     ):
         """Init constructor of SGXCertificate."""
         self.cert_path: Path = root_path / "cert.ratls.pem"
@@ -49,26 +50,28 @@ class Certificate:
         self.quote: Optional[Quote] = None
         if self.key_path.exists() and self.cert_path.exists():
             self.cert = x509.load_pem_x509_certificate(data=self.cert_path.read_bytes())
-            if ratls:
+            if ratls is not None:
                 self.quote = get_quote_from_cert(self.cert)
         else:
             custom_extension: Optional[x509.ExtensionType] = None
-            if ratls:
-                self.quote = Quote.from_bytes(
-                    get_quote(
-                        user_report_data=hashlib.sha256(
-                            self.sk.public_key().public_bytes(
-                                encoding=Encoding.X962,
-                                format=PublicFormat.UncompressedPoint,
-                            )
-                        ).digest()
+            if ratls is not None:
+                pubkey_hash: bytes = hashlib.sha256(
+                    self.sk.public_key().public_bytes(
+                        encoding=Encoding.X962,
+                        format=PublicFormat.UncompressedPoint,
                     )
+                ).digest()
+                user_report_data: bytes = (
+                    pubkey_hash + ratls if ratls is not None else pubkey_hash
+                )
+                self.quote = Quote.from_bytes(
+                    get_quote(user_report_data=user_report_data)
                 )
                 custom_extension = x509.UnrecognizedExtension(
                     oid=SGX_QUOTE_EXTENSION_OID, value=bytes(self.quote)
                 )
             self.cert = generate_x509(
-                dns_name=dns_name,
+                subject_alternative_name=subject_alternative_name,
                 subject=subject,
                 private_key=self.sk,
                 expiration_date=self.expiration_date,
@@ -91,7 +94,7 @@ class Certificate:
 
 
 def generate_x509(
-    dns_name: str,
+    subject_alternative_name: str,
     subject: x509.Name,
     private_key: ec.EllipticCurvePrivateKey,
     expiration_date: datetime,
@@ -99,6 +102,12 @@ def generate_x509(
 ) -> x509.Certificate:
     """X509 certificate generation."""
     issuer: x509.Name = subject  # issuer=subject for self-signed certificate
+
+    san: Union[x509.IPAddress, x509.DNSName]
+    try:
+        san = x509.IPAddress(ipaddress.ip_address(subject_alternative_name))
+    except ValueError:
+        san = x509.DNSName(subject_alternative_name)
 
     builder: x509.CertificateBuilder = x509.CertificateBuilder()
 
@@ -110,7 +119,7 @@ def generate_x509(
         .not_valid_before(datetime.utcnow())
         .not_valid_after(expiration_date)
         .add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(dns_name)]),
+            x509.SubjectAlternativeName([san]),
             critical=False,
         )
     )
@@ -128,12 +137,17 @@ def generate_x509(
 
 def to_wildcard_domain(domain: str) -> str:
     """Add wildcard to first subdomain."""
-    if "." not in domain:
-        return domain
+    try:
+        _ = ipaddress.ip_address(domain)
+    except ValueError:
+        if "." not in domain:
+            return domain
 
-    subdomains: List[str] = urlparse(f"//{domain}").netloc.split(".")
+        subdomains: List[str] = urlparse(f"//{domain}").netloc.split(".")
 
-    if len(subdomains) <= 2:
-        return domain
+        if len(subdomains) <= 2:
+            return domain
 
-    return f"*.{'.'.join(subdomains[1:])}"
+        return f"*.{'.'.join(subdomains[1:])}"
+
+    return domain

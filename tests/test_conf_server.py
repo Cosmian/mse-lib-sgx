@@ -1,6 +1,5 @@
 import importlib
 import json
-import secrets
 import ssl
 import sys
 import time
@@ -24,30 +23,8 @@ def test_bad_uuid(
         url=f"https://{host}:{port}", headers={"Content-Type": "application/json"}
     )
     data: bytes = json.dumps(
-        {"uuid": uuid, "code_secret_key": code_secret_key.hex()}
+        {"uuid": str(uuid), "code_secret_key": code_secret_key.hex()}
     ).encode("utf-8")
-    req.add_header("Content-Length", str(len(data)))
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-
-    with pytest.raises(urllib.error.HTTPError):
-        urllib.request.urlopen(req, data, context=ctx)
-
-
-def test_no_secret_key(
-    set_env,
-    uuid,
-    host,
-    port,
-    conf_server,
-):
-    assert conf_server.is_alive()
-
-    req = urllib.request.Request(
-        url=f"https://{host}:{port}", headers={"Content-Type": "application/json"}
-    )
-    data: bytes = json.dumps({"uuid": uuid}).encode("utf-8")
     req.add_header("Content-Length", str(len(data)))
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
@@ -94,7 +71,7 @@ def test_good_flow(
         url=f"https://{host}:{port}", headers={"Content-Type": "application/json"}
     )
     data: bytes = json.dumps(
-        {"uuid": uuid, "code_secret_key": code_secret_key.hex()}
+        {"uuid": str(uuid), "code_secret_key": code_secret_key.hex()}
     ).encode("utf-8")
     req.add_header("Content-Length", str(len(data)))
     ctx = ssl.create_default_context()

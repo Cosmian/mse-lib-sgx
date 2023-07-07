@@ -4,20 +4,26 @@ import argparse
 import asyncio
 import importlib
 import logging
+import shutil
 import sys
 import sysconfig
+import uuid
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 
+from cryptography import x509
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
+from mse_lib_crypto.x25519 import x25519_pk_from_sk
 from mse_lib_crypto.xsalsa20_poly1305 import decrypt_directory
 
 from mse_lib_sgx import __version__, globs
-from mse_lib_sgx.certificate import Certificate, to_wildcard_domain
+from mse_lib_sgx.certificate import Certificate
+from mse_lib_sgx.copy import copytree
 from mse_lib_sgx.error import SecurityError
 from mse_lib_sgx.http_server import serve as serve_sgx_secrets
+from mse_lib_sgx.sgx.key import get_mrenclave_key
 
 
 def parse_args() -> argparse.Namespace:
@@ -33,12 +39,19 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--host",
-        required=True,
         type=str,
-        help="hostname of the configuration server, "
-        "also the hostname of the app server if `--self-signed`",
+        default="0.0.0.0",
+        help="hostname of the server",
     )
-    parser.add_argument("--port", required=True, type=int, help="port of the server")
+    parser.add_argument("--port", type=int, default=443, help="port of the server")
+    parser.add_argument(
+        "--subject",
+        type=str,
+        help="Subject as RFC 4514 string for the RA-TLS certificate",
+    )
+    parser.add_argument(
+        "--san", type=str, help="Subject Alternative Name in the RA-TLS certificate"
+    )
     parser.add_argument(
         "--app-dir",
         required=True,
@@ -46,7 +59,16 @@ def parse_args() -> argparse.Namespace:
         help="path of the python web application",
     )
     parser.add_argument(
-        "--uuid", required=True, type=str, help="unique application UUID"
+        "--id",
+        required=True,
+        type=uuid.UUID,
+        help="identifier of the application as UUID in RFC 4122",
+    )
+    parser.add_argument(
+        "--plaincode", action="store_true", help="unencrypted python web application"
+    )
+    parser.add_argument(
+        "--timeout", type=int, help="seconds before closing the configuration server"
     )
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
@@ -58,10 +80,10 @@ def parse_args() -> argparse.Namespace:
     group = parser.add_mutually_exclusive_group(required=True)
 
     group.add_argument(
-        "--self-signed",
+        "--ratls",
         type=int,
         metavar="EXPIRATION_DATE",
-        help="generate a self-signed certificate for the web app with a "
+        help="generate a self-signed certificate for RA-TLS with a "
         "specific expiration date (Unix time)",
     )
 
@@ -86,6 +108,7 @@ class SslAppMode(Enum):
     NO_SSL = 3  # no SSL, will be done by the SSL proxy
 
 
+# pylint: disable=too-many-statements,too-many-branches
 def run() -> None:
     """Entrypoint of the CLI.
 
@@ -109,19 +132,17 @@ def run() -> None:
 
     globs.HOME_DIR_PATH.mkdir(exist_ok=True)
     globs.KEY_DIR_PATH.mkdir(exist_ok=True)
-    globs.MODULE_DIR_PATH.mkdir(exist_ok=True)
 
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
         format="[%(asctime)s] [%(levelname)s] %(message)s",
     )
 
+    if args.timeout:
+        globs.TIMEOUT = args.timeout
+
     ssl_private_key_path = None
     expiration_date = datetime.now() + timedelta(hours=10)
-    common_name: str = to_wildcard_domain(args.host)
-
-    if not common_name:
-        raise SecurityError(f"Can't parse host to extract Common Name: {args.host}")
 
     ssl_app_mode: SslAppMode
     if args.no_ssl:
@@ -136,39 +157,58 @@ def run() -> None:
     else:
         # The conf server and the app server will use the same self-signed cert
         ssl_app_mode = SslAppMode.RATLS_CERTIFICATE
-        expiration_date = datetime.utcfromtimestamp(args.self_signed)
+        expiration_date = datetime.utcfromtimestamp(args.ratls)
 
     logging.info("Generating self-signed certificate...")
 
+    if not globs.ENCLAVE_SK_PATH.exists():
+        globs.ENCLAVE_SK_PATH.write_bytes(get_mrenclave_key())
+
+    enclave_pk: bytes = x25519_pk_from_sk(globs.ENCLAVE_SK_PATH.read_bytes())
+
+    if len(enclave_pk) != 32:
+        raise SecurityError("Bad enclave pk length!")
+
     cert: Certificate = Certificate(
-        dns_name=args.host,
-        subject=globs.SUBJECT,
+        subject_alternative_name=args.san if args.san else "localhost",
+        subject=(
+            x509.Name.from_rfc4514_string(args.subject)
+            if args.subject
+            else globs.SUBJECT
+        ),
         root_path=globs.KEY_DIR_PATH,
         expiration_date=expiration_date,
-        ratls=True,
+        ratls=enclave_pk,
     )
 
-    symkey_path: Path = globs.KEY_DIR_PATH / "code.key"
-
-    if not symkey_path.exists():
+    if not globs.MODULE_DIR_PATH.exists():
         logging.info("Starting the configuration server...")
         # The app owner will send:
         # - the uuid of the app (see as an uniq token allowing to query the API)
         # - the key to decrypt the code
         # - (optional) the SSL private key if AppConnection.OWNER_CERTFICIATE
         serve_sgx_secrets(
-            hostname="0.0.0.0",
+            hostname=args.host,
             port=args.port,
             certificate=cert,
-            uuid=args.uuid,
+            app_id=args.id,
             need_ssl_private_key=ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE,
             timeout=globs.TIMEOUT,
         )
 
-        if globs.CODE_SECRET_KEY is None:
-            raise SecurityError("Code secret key not provided")
-
-        symkey_path.write_bytes(globs.CODE_SECRET_KEY)
+        if globs.CODE_SECRET_KEY is not None:
+            globs.CODE_KEY_PATH.write_bytes(globs.CODE_SECRET_KEY)
+            globs.MODULE_DIR_PATH.mkdir()
+            decrypt_directory(
+                dir_path=args.app_dir,
+                key=globs.CODE_KEY_PATH.read_bytes(),
+                ext=".enc",
+                out_dir_path=globs.MODULE_DIR_PATH,
+            )
+        else:
+            copytree(
+                src=args.app_dir, dst=globs.MODULE_DIR_PATH, copy_function=shutil.copy
+            )
 
         if (
             ssl_app_mode == SslAppMode.CUSTOM_CERTIFICATE
@@ -177,15 +217,8 @@ def run() -> None:
         ):
             ssl_private_key_path.write_text(globs.SSL_PRIVATE_KEY)
 
-    decrypt_directory(
-        dir_path=args.app_dir,
-        key=symkey_path.read_bytes(),
-        ext=".enc",
-        out_dir_path=globs.MODULE_DIR_PATH,
-    )
-
     config_map = {
-        "bind": f"0.0.0.0:{args.port}",
+        "bind": f"{args.host}:{args.port}",
         "alpn_protocols": ["h2"],
         "workers": 1,
         "accesslog": "-",

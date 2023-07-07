@@ -33,11 +33,11 @@ setup(
     long_description_content_type="text/markdown",
     zip_safe=False,
     install_requires=[
-        "cryptography>=39.0.0,<40.0.0",
-        "intel-sgx-ra>=1.0,<1.1",
+        "cryptography>=41.0.1,<42.0.0",
+        "intel-sgx-ra>=2.0,<3.0",
         "hypercorn[uvloop]>=0.14.3,<0.15.0",
         "h2>=4.1.0,<4.2.0",
-        "mse-lib-crypto>=1.1,<1.2",
+        "mse-lib-crypto>=1.3,<2.0",
     ],
     entry_points={
         "console_scripts": ["mse-bootstrap = mse_lib_sgx.cli:run"],
