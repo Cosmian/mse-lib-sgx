@@ -161,13 +161,26 @@ def run() -> None:
 
     logging.info("Generating self-signed certificate...")
 
+    enclave_sk: bytes
+    enclave_pk: bytes
     if not globs.ENCLAVE_SK_PATH.exists():
-        globs.ENCLAVE_SK_PATH.write_bytes(get_mrenclave_key())
+        enclave_sk = get_mrenclave_key()
+        globs.ENCLAVE_SK_PATH.write_bytes(enclave_sk)
+        enclave_pk = x25519_pk_from_sk(globs.ENCLAVE_SK_PATH.read_bytes())
 
-    enclave_pk: bytes = x25519_pk_from_sk(globs.ENCLAVE_SK_PATH.read_bytes())
+        if len(enclave_pk) != 32:
+            raise SecurityError("Bad enclave pk length!")
 
-    if len(enclave_pk) != 32:
-        raise SecurityError("Bad enclave pk length!")
+        globs.ENCLAVE_PK_PATH.write_bytes(enclave_pk)
+    else:
+        enclave_sk = globs.ENCLAVE_SK_PATH.read_bytes()
+        enclave_pk = globs.ENCLAVE_PK_PATH.read_bytes()
+
+        if len(enclave_sk) != 32:
+            raise SecurityError("Bad enclave sk length!")
+
+        if x25519_pk_from_sk(enclave_sk) != enclave_pk:
+            raise SecurityError("Malformed enclave's keypair!")
 
     cert: Certificate = Certificate(
         subject_alternative_name=args.san if args.san else "localhost",

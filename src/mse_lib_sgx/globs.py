@@ -28,6 +28,7 @@ MODULE_DIR_PATH: Path = Path(os.getenv("MODULE_PATH", "/mse-app"))
 
 CODE_KEY_PATH: Path = KEY_DIR_PATH / "code.key"
 ENCLAVE_SK_PATH: Path = KEY_DIR_PATH / "enclave.key"
+ENCLAVE_PK_PATH: Path = KEY_DIR_PATH / "enclave.pub"
 
 SUBJECT: x509.Name = x509.Name(
     [
