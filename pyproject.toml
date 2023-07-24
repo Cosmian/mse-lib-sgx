@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68.0.0,<69.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mse-lib-sgx"
+authors = [
+    { name = "Cosmian Tech", email = "tech@cosmian.com" },
+]
+description = "Library to bootstrap WSGI/ASGI application for Gramine"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Implementation :: CPython"
+]
+dependencies = [
+    "cryptography>=41.0.1,<42.0.0",
+    "intel-sgx-ra>=2.0,<3.0",
+    "hypercorn[uvloop]>=0.14.3,<0.15.0",
+    "h2>=4.1.0,<4.2.0",
+    "mse-lib-crypto>=1.3,<2.0"
+]
+dynamic = ["version"]
+
+[tool.setuptools.dynamic]
+version = { attr = "mse_lib_sgx.__version__" }
+
+[project.optional-dependencies]
+dev = [
+    "pylint>=2.17.4,<3.0.0",
+    "pycodestyle>=2.10.0,<3.0.0",
+    "pydocstyle>=6.3.0,<7.0.0",
+    "mypy>=1.4.1,<2.0.0",
+    "black>=23.7.0,<24.0.0",
+    "isort>=5.12.0,<6.0.0",
+    "pytest>=7.4.0,<8.0.0"
+]
+deploy = [
+    "build>=0.10.0,<0.11.0",
+    "wheel>=0.40.0,<0.41.0"
+]
+
+[project.scripts]
+mse-bootstrap = "mse_lib_sgx.cli:run"
+
+[tool.pylint.MAIN]
+disable = [
+    "C0103", # invalid-name
+    "R0913", # too-many-arguments
+    "R0902", # too-many-instance-attributes
+    "R0914", # too-many-locals
+    "R0903"  # too-few-public-methods
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest]
+testpaths = "tests"
+pythonpath = "src"
