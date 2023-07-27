@@ -24,7 +24,41 @@ from mse_lib_sgx.sgx.quote import get_quote
 
 
 class Certificate:
-    """Certificate class."""
+    """Certificate class.
+
+    Parameters
+    ----------
+    subject_alternative_name : str
+        Value subjectAltName to add in the X509 certificate.
+    subject : x509.Name
+        Ordered list of Relative Distinguished Names (RDNs).
+        See `x509.Name`_.
+    root_path : Path
+        Path to store certificate and private key.
+    expiration_date: datetime
+        Expiration date of the certificate.
+    ratls : Optional[bytes]
+        Bytes to insert in report_data of the SGX quote if RATLS certificate.
+
+    Attributes
+    ----------
+    cert_path : Path
+        Path of the RATLS certificate created.
+    key_path : Path
+        Path of the private key.
+    sk : ec.EllipticCurvePrivateKey
+        Private key on SECP256R1.
+    expiration_date : datetime
+        Expiration date of the certificate.
+    cert : x509.Certificate
+        X.501 certificate.
+    quote : Optional[Quote]
+        Intel SGX quote to use for RATLS certificate if any.
+
+    .. _x509.Name:
+        https://cryptography.io/en/latest/x509/reference/#cryptography.x509.Name
+
+    """
 
     def __init__(
         self,
@@ -82,7 +116,18 @@ class Certificate:
     def write(
         self, cert_path: Path, sk_path: Path, encoding: Encoding = Encoding.PEM
     ) -> None:
-        """Write X509 certificate and private key to `cert_path` and `sk_path`."""
+        """Write X509 certificate and private key to `cert_path` and `sk_path`.
+
+        Parameters
+        ----------
+        cert_path : Path
+            Output path of the X509 certificate.
+        sk_path : Path
+            Output path of the private key.
+        encoding : Encoding
+            Encoding used to write X509 certificate.
+
+        """
         cert_path.write_bytes(self.cert.public_bytes(encoding))
         sk_path.write_bytes(
             self.sk.private_bytes(
@@ -100,7 +145,31 @@ def generate_x509(
     expiration_date: datetime,
     custom_extension: Optional[x509.ExtensionType] = None,
 ) -> x509.Certificate:
-    """X509 certificate generation."""
+    """Build a self-signed X509 certificate given parameters.
+
+    Parameters
+    ----------
+    subject_alternative_name : str
+        Value subjectAltName to add in the X509 certificate.
+    subject : x509.Name
+        Ordered list of Relative Distinguished Names (RDNs).
+        See `x509.Name`_.
+    private_key : ec.EllipticCurvePrivateKey
+        Private key to sign the X509 certificate.
+    expiration_date : datetime
+        Expiration date of the X509 certificate.
+    custom_extension : Optional[x509.ExtensionType]
+        Custom X509 v3 extension. Mainly used for RA-TLS certificate.
+
+    Returns
+    -------
+    x509.Certificate
+        Self-signed X509 certificate with input parameters.
+
+    .. _x509.Name:
+        https://cryptography.io/en/latest/x509/reference/#cryptography.x509.Name
+
+    """
     issuer: x509.Name = subject  # issuer=subject for self-signed certificate
 
     san: Union[x509.IPAddress, x509.DNSName]
@@ -136,7 +205,19 @@ def generate_x509(
 
 
 def to_wildcard_domain(domain: str) -> str:
-    """Add wildcard to first subdomain."""
+    """Transform domain to wildcard domain.
+
+    Parameters
+    ----------
+    domain : str
+        Domain name to transform.
+
+    Returns
+    -------
+    str
+        New domain with first subdomain replaced with wildcard.
+
+    """
     try:
         _ = ipaddress.ip_address(domain)
     except ValueError:

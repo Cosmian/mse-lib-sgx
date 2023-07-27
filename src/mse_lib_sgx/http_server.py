@@ -18,7 +18,21 @@ from mse_lib_sgx.error import CryptoError
 
 
 class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
-    """SGX HTTP server to complete application config with secrets params."""
+    """HTTP server to configure the targeted WSGI/ASGI application.
+
+    Server is killed if it receives correcly the following elements
+    on POST method:
+        - uuid
+        - (optional) ssl_private_key
+        - (optional) app_secrets
+        - (optional) app_sealed_secrets
+        - (optional if plain code) code_secret_key
+
+    Note
+    ----
+    Contains only one endpoint '/' with GET and POST methods.
+
+    """
 
     def do_GET(self) -> None:
         """GET /."""
@@ -36,12 +50,12 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
         content_length: int = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length)
 
-        # body is a json withthese fields:
+        # body is a JSON with keys:
         # - uuid
         # - (optional) ssl_private_key
         # - (optional) app_secrets
         # - (optional) app_sealed_secrets
-        # - code_secret_key
+        # - (optional if plain code)  code_secret_key
         try:
             data = json.loads(body.decode("utf8"))
 
@@ -97,7 +111,33 @@ def serve(
     need_ssl_private_key: bool,
     timeout: Optional[int],
 ):
-    """Serve simple SGX HTTP server."""
+    """Serve SGXHTTPRequestHandler and run kill event in another thead.
+
+    Server is killed if it receives correctly:
+        - uuid
+        - (optional) ssl_private_key
+        - (optional) app_secrets
+        - (optional) app_sealed_secrets
+        - (optional if plain code) code_secret_key
+    or after `timeout`.
+
+    Parameters
+    ----------
+    hostname : str
+        Hostname of the server.
+    port : int
+        Port of the server.
+    certificate : Certificate
+        Certificate used for SSL.
+    app_id : UUID
+        Unique identifier of the server.
+    need_ssl_private_key : bool
+        Whether you provide a custom private key through
+        configuration server.
+    timeout : Optional[int]
+        Duration in ms before closing the HTTP server.
+
+    """
     globs.NEED_SSL_PRIVATE_KEY = need_ssl_private_key
     globs.ID = app_id
 
@@ -123,7 +163,18 @@ def serve(
 
 
 def kill_event(httpd: HTTPServer, timer: Optional[threading.Timer]):
-    """Kill HTTP server in a thread if `EXIT_EVENT` is set."""
+    """Event to kill `httpd`.
+
+    Loop exits if `globs.EXIT_EVENT` is set or timer thread finished.
+
+    Parameters
+    ----------
+    httpd : HTTPServer
+        Server to be killed.
+    timer : Optional[threading.Timer]
+        Timer thread to kill `httpd` if provided.
+
+    """
     while True:
         if globs.EXIT_EVENT.is_set():
             logging.info("Stopping the configuration server...")
@@ -138,5 +189,5 @@ def kill_event(httpd: HTTPServer, timer: Optional[threading.Timer]):
 
 
 def kill():
-    """Kill HTTP server by setting `EXIT_EVENT`."""
+    """Set `globs.EXIT_EVENT` to kill HTTPServer with `kill_event`."""
     globs.EXIT_EVENT.set()

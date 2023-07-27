@@ -10,7 +10,7 @@ The library is responsible for:
   - *RA-TLS*, a self-signed certificate including the Intel SGX quote in an X.509 v3 extension
   - *Custom*, the private key and full keychain is provided by the application owner
   - *No SSL*, the secure channel may be managed elsewhere by an SSL proxy
-- Decrypting Python modules encrypted with XSala20-Poly1305 AEAD
+- Decrypting Python modules encrypted with XSala20-Poly1305 AE
 - Running the ASGI/WSGI Python web application with [hypercorn](https://pgjones.gitlab.io/hypercorn/)
 
 ## Technical details
@@ -34,9 +34,9 @@ $ pip install mse-lib-sgx
 
 ```console
 $ mse-bootstrap --help
-usage: mse-bootstrap [-h] --host HOST --port PORT --app-dir APP_DIR --uuid
-                     UUID [--version] [--debug]
-                     (--self-signed EXPIRATION_DATE | --no-ssl | --certificate CERTIFICATE_PATH)
+usage: mse-bootstrap [-h] [--host HOST] [--port PORT] [--subject SUBJECT] [--san SAN] --app-dir APP_DIR --id ID [--plaincode]
+                     [--timeout TIMEOUT] [--version] [--debug]
+                     (--ratls EXPIRATION_DATE | --no-ssl | --certificate CERTIFICATE_PATH)
                      application
 
 Bootstrap ASGI/WSGI Python web application for Gramine
@@ -46,20 +46,20 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  --host HOST           hostname of the configuration server, also the
-                        hostname of the app server if `--self-signed`
+  --host HOST           hostname of the server
   --port PORT           port of the server
+  --subject SUBJECT     Subject as RFC 4514 string for the RA-TLS certificate
+  --san SAN             Subject Alternative Name in the RA-TLS certificate
   --app-dir APP_DIR     path of the python web application
-  --uuid UUID           unique application UUID
+  --id ID               identifier of the application as UUID in RFC 4122
+  --plaincode           unencrypted python web application
+  --timeout TIMEOUT     seconds before closing the configuration server
   --version             show program's version number and exit
   --debug               debug mode with more logging
-  --self-signed EXPIRATION_DATE
-                        generate a self-signed certificate for the web app
-                        with a specific expiration date (Unix time)
+  --ratls EXPIRATION_DATE
+                        generate a self-signed certificate for RA-TLS with a specific expiration date (Unix time)
   --no-ssl              use HTTP without SSL
   --certificate CERTIFICATE_PATH
-                        custom certificate used for the SSL connection,
-                        private key must be sent through the configuration
-                        server
+                        custom certificate used for the SSL connection, private key must be sent through the configuration server
 
 ```

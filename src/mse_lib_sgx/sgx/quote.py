@@ -6,7 +6,19 @@ SGX_QUOTE_MAX_SIZE: int = 8192
 
 
 def get_quote(user_report_data: bytes) -> bytes:
-    """Read the quote if inside Intel SGX enclave."""
+    """Request quote with `user_report_data` in REPORT_DATA field of SGX quote.
+
+    Parameters
+    ----------
+    user_report_data : bytes
+        Bytes to insert in REPORT_DATA field of SGX quote (max 64 bytes).
+
+    Returns
+    -------
+    bytes
+        Bytes of Intel SGX quote.
+
+    """
     if len(user_report_data) > 64:
         raise SGXError("user_report_data must be at most 64 bytes")
 
@@ -15,6 +27,7 @@ def get_quote(user_report_data: bytes) -> bytes:
         with open("/dev/attestation/attestation_type", "rb") as f:
             attestation_type = f.read(32).decode("utf-8").strip()
 
+        # only DCAP supported
         if attestation_type != "dcap":
             raise SGXError(f"Only DCAP supported, found '{attestation_type}'")
 
