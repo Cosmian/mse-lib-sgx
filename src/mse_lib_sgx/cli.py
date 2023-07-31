@@ -27,7 +27,14 @@ from mse_lib_sgx.sgx.key import get_mrenclave_key
 
 
 def parse_args() -> argparse.Namespace:
-    """Argument parser."""
+    """Argument parser.
+
+    Returns
+    -------
+    argparse.Namespace
+        Namespace with parsed arguments.
+
+    """
     parser = argparse.ArgumentParser(
         description="Bootstrap ASGI/WSGI Python web application for Gramine"
     )
@@ -112,21 +119,19 @@ class SslAppMode(Enum):
 def run() -> None:
     """Entrypoint of the CLI.
 
-    The program creates a self-signed certificate.
-
-    Then starts a configuration server using HTTPS and this previous cert
-    in order to allow the user to send some secrets params.
-
-    Once all the secrets has been sent, three options:
-    - (--self-signed) If the app owner relies on the enclave certificate,
+    Note
+    ----
+    Once all the secrets sent to the configuration server, three options:
+    - [--self-signed] If the app owner relies on the enclave certificate,
       then start the app server using this same certificate
-    - (--certificate) Start the app server using the certificate
+    - [--certificate] Start the app server using the certificate
       provided by the app owner. In that case, the certificate
       is already present in the workspace of the program
       but the private key is sent by the app owner
       when the configuration server is up.
-    - (--no-ssl) If the app owner and the users trust the operator (cosmian)
+    - [--no-ssl] If the app owner and the users trust the operator (cosmian)
       then don't use https connection.
+
     """
     args: argparse.Namespace = parse_args()
 
@@ -196,10 +201,6 @@ def run() -> None:
 
     if not globs.MODULE_DIR_PATH.exists():
         logging.info("Starting the configuration server...")
-        # The app owner will send:
-        # - the uuid of the app (see as an uniq token allowing to query the API)
-        # - the key to decrypt the code
-        # - (optional) the SSL private key if AppConnection.OWNER_CERTFICIATE
         serve_sgx_secrets(
             hostname=args.host,
             port=args.port,

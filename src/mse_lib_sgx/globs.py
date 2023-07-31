@@ -1,4 +1,4 @@
-"""mse_lib_sgx.global module."""
+"""mse_lib_sgx.globs module."""
 
 import os
 import threading

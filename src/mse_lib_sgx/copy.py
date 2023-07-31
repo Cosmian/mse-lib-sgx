@@ -1,4 +1,13 @@
-"""mse_lib_sgx.copy module."""
+"""mse_lib_sgx.copy module.
+
+Note
+----
+Code from `cpython/Lib/shutil.py`_ but with copystat() removed for Gramine.
+
+.. _cpython/Lib/shutil.py:
+    https://github.com/python/cpython/blob/3.8/Lib/shutil.py#L507
+
+"""
 
 import os
 import stat

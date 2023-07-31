@@ -9,7 +9,7 @@ def base64url_encode(value: bytes) -> str:
     Parameters
     ----------
     value : bytes
-        Value to encode in base64.
+        Bytes to encode.
 
     Returns
     -------
@@ -21,17 +21,17 @@ def base64url_encode(value: bytes) -> str:
 
 
 def base64url_decode(value: str) -> bytes:
-    """Perform URL safe b64decode on `value` badly padded.
+    """Perform URL safe base64 decode on `value` badly padded.
 
     Parameters
     ----------
     value : str
-        String to b64decode.
+        String to decode.
 
     Returns
     -------
     bytes
-        Result of b64decode on `value`.
+        Result of URL safe base64 decode on `value`.
 
     """
     modulus: int = len(value) % 4

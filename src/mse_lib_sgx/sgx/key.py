@@ -9,7 +9,21 @@ from mse_lib_sgx.error import SGXError
 
 
 def get_mrenclave_key() -> bytes:
-    """Get MRENCLAVE based key using EGETKEY instruction if inside Intel SGX enclave."""
+    """Get key tied to the current enclave (MRENCLAVE measurement).
+
+    SGX sealing key is derived with HKDF-SHA256 using a random salt to
+    avoid use of the same secret for the same enclave (MRENCLAVE). Store
+    the secret to support reboot, see `encrypted files`_ in Gramine.
+
+    Returns
+    -------
+    bytes
+        32 bytes key used to create enclave's public key.
+
+    .. _encrypted files:
+        https://gramine.readthedocs.io/en/latest/manifest-syntax.html#encrypted-files
+
+    """
     mr_enclave_key: bytes
     try:
         with open("/dev/attestation/keys/_sgx_mrenclave", "rb") as f:
