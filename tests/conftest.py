@@ -82,6 +82,7 @@ def certificate(key_dir_path):
     expiration_date = datetime.now() + timedelta(hours=10)
 
     return Certificate(
+        enclave_id="test",
         subject_alternative_name="localhost",
         subject=globs.SUBJECT,
         root_path=key_dir_path,
