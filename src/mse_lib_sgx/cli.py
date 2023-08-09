@@ -188,6 +188,7 @@ def run() -> None:
             raise SecurityError("Malformed enclave's keypair!")
 
     cert: Certificate = Certificate(
+        enclave_id=str(args.id),
         subject_alternative_name=args.san if args.san else "localhost",
         subject=(
             x509.Name.from_rfc4514_string(args.subject)
