@@ -197,7 +197,7 @@ def generate_x509(
         builder = builder.add_extension(custom_extension, critical=False)
 
     builder = builder.add_extension(
-        x509.BasicConstraints(ca=False, path_length=None),
+        x509.BasicConstraints(ca=True, path_length=None),
         critical=True,
     )
 
