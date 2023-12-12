@@ -66,6 +66,6 @@ jobs:
         if: ${{ startsWith(github.ref, 'refs/tags') && endsWith(github.ref, steps.metadata.outputs.PACKAGE_VERSION) }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          print_hash: true
-          user: ${{ secrets.PYPI_USERNAME }}
-          password: ${{ secrets.PYPI_PASSWORD }}
+          repository-url: https://upload.pypi.org/legacy/
+          print-hash: true
+          password: ${{ secrets.PYPI_API_TOKEN }}
