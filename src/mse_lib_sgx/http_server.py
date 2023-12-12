@@ -6,7 +6,7 @@ import ssl
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from mse_lib_crypto.seal_box import unseal
@@ -64,16 +64,20 @@ class SGXHTTPRequestHandler(BaseHTTPRequestHandler):
                 globs.SECRETS_PATH.write_bytes(json.dumps(app_secrets).encode("utf-8"))
 
             if app_sealed_secrets := data.get("app_sealed_secrets"):
+                content: Dict[str, Any] = json.loads(
+                    unseal(
+                        base64url_decode(app_sealed_secrets),
+                        globs.ENCLAVE_SK_PATH.read_bytes(),
+                    )
+                )
+                if "code_secret_key" in content:
+                    globs.CODE_SECRET_KEY = bytes.fromhex(content["code_secret_key"])
+
+                    if len(globs.CODE_SECRET_KEY) != 32:
+                        raise CryptoError("Incorrect key length!")
                 globs.SEALED_SECRETS_PATH.parent.mkdir(parents=True, exist_ok=True)
                 globs.SEALED_SECRETS_PATH.write_bytes(
-                    json.dumps(
-                        json.loads(
-                            unseal(
-                                base64url_decode(app_sealed_secrets),
-                                globs.ENCLAVE_SK_PATH.read_bytes(),
-                            )
-                        )
-                    ).encode("utf-8")
+                    json.dumps(content).encode("utf-8")
                 )
 
             # Do not process queries which have not the `uuid` data field
