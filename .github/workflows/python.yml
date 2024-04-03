@@ -3,20 +3,25 @@ name: Python CI
 on: [push]
 
 env:
-  PYTHONPATH: "src"
+  PYTHON_SRC: "src"
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         python-version: ["3.10"]
+    environment:
+      name: release
+      url: https://pypi.org/p/mse-lib-sgx
+    permissions:
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -32,27 +37,27 @@ jobs:
 
       - name: Code format with black
         run: |
-          python -m black --check $PYTHONPATH
+          python -m black --check $PYTHON_SRC
 
       - name: Import check with isort
         run: |
-          python -m isort --check $PYTHONPATH
+          python -m isort --check $PYTHON_SRC
 
       - name: Lint check with pylint
         run: |
-          python -m pylint $PYTHONPATH
+          python -m pylint $PYTHON_SRC
 
       - name: Lint check with pycodestyle
         run: |
-          python -m pycodestyle $PYTHONPATH
+          python -m pycodestyle $PYTHON_SRC
 
       - name: Lint check with pydocstyle
         run: |
-          python -m pydocstyle $PYTHONPATH
+          python -m pydocstyle $PYTHON_SRC
 
       - name: Typecheck with MyPy
         run: |
-          python -m mypy $PYTHONPATH
+          python -m mypy $PYTHON_SRC
 
       - name: Test with pytest
         run: |
@@ -65,7 +70,3 @@ jobs:
       - name: Publish package to PyPi
         if: ${{ startsWith(github.ref, 'refs/tags') && endsWith(github.ref, steps.metadata.outputs.PACKAGE_VERSION) }}
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://upload.pypi.org/legacy/
-          print-hash: true
-          password: ${{ secrets.PYPI_API_TOKEN }}
